@@ -1,0 +1,948 @@
+---
+title: "Trabajo Práctico Integador"
+output: pdf_document
+author: Mª Cristina Heredia Gómez
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Análisis de los datos de Regresión
+Para regresión, la base de datos que me fue asignada es *ForestFires*, mientras que para clasificación se me asignó el dataset *tae*. 
+
+### Cálculo de estadísticos y descripción de los datos
+```{r,message=FALSE,warning=FALSE}
+setwd("/home/cris/mrcrstnherediagmez@gmail.com/Intro_Ciencia_de_datos/Trabajo Final/Datasets Regresion/forestFires")
+forestFires<-read.csv("forestFires.dat", comment.char="@")
+str(forestFires)
+summary(forestFires)
+```
+Comenzamos cargando el dataset *ForestFires*. Con *str* podemos ver que se trata de un dataframe de 516 muestras con 13 variables, todas de tipo numérico. Algunas variables son de tipo entero mientras que otras sí contienen valores con decimales. Usamos *summary* para obtener más información acerca de estas variables, en concreto su mínimo, máximo, media, mediana, 1º y 3º cuartil. 
+Podemos ver que hay algunas variables, como por ejemplo X1, X3, X4 donde el valor de la media y el de la mediana son próximos, mientras que en otras variables, como X70.76 el valor de la mediana es 0.520 frente al de la media que es 12.735. Si a ésto le añadimos que el mínimo de esa variable es 0.000 y que el máximo es 1090.840, ésto podría indicar que en la variable X70.76 existe un sesgo importante hacia números pequeños cercanos al mínimo.
+
+A pesar de que con *summary* tenemos un resumen de algunos estadísticos del dataset, calculamos otros adicionales como la desviación estándar(SD), desviación absoluta media(MAD), asimetría y curtosis y el rango intercuartílico (IQR) del mismo, que nos puedan arrojar más información sobre el dataset al que nos enfrentamos. 
+En primer lugar, comprobamos si hay valores perdidos en el dataset:
+```{r}
+sum(which(is.na(forestFires)))
+```
+Podemos comprobar que el dataset no contiene ningún valor perdido. A continuación calculamos la media, mediana y desviación típica de cada variable.
+```{r}
+apply(forestFires,2,mean)
+apply(forestFires,2,median)
+apply(forestFires,2,sd)
+```
+Podemos ver que hay variables como  X276.3, X43, X70.76 y especialmente X825.1 que presentan una desviación típica muy alta, por lo que presentan una alta variabilidad con respecto a su media. Una forma más robusta de medir la desviación que presentan las variables es la MAD (median absolute deviation), que calcula la media de las desviaciones absolutas a un punto central, que por defecto será la mediana: 
+```{r}
+apply(forestFires,2,mad)
+```
+Esta vez X276.3, X825.1 y X43 presentan una variabilidad alta con respecto a su mediana, a diferencia de X70.76 que con respecto a su mediana no presenta tal variabilidad. Otra medida robusta para medir la variabilidad es el rango intercuartil (IQR), que se calcula a partir de los cuartiles 1º y 3º:
+```{r}
+apply(forestFires,2,quantile)
+apply(forestFires,2,IQR)
+```
+Con *quantile* calculamos los tres cuartiles de cada variable del dataset, y calculamos su IQR. Puesto que el IQR define el rango en el que se encuentran el 50% de los valores, podemos deducir que variables que presentan un IQR muy alto, como por ejemplo X276.3, X825.1 y X43 indican variabilidad en los datos, especialmente X825.1 donde el IQR es de 277.3000 y, por tanto, no está normalmente distribuida. Por último vamos a calcular las medidas de *skewness* y *curtosis*, que nos darán indicativos de como de asimétricas y picudas son las distribuciones de as variables:
+```{r}
+library(moments)
+skewness(forestFires)
+```
+Valores de _skewness_ positivos o negativos lejanos a 0 indican un sesgo o desplazamiento en la distribución. Podemos ver que, en este dataset, prácticamente todas las variables presentan algún desplazamiento en su distribución, si bien algunos son especialmente llamativos, como por ejemplo la variable XO que tiene skewness=19.73956825 y por tanto presenta un sesgo positivo, esto es, los datos se concentran a la izquierda de la distribución, quedando una cola  más larga a la derecha y corta a la izquierda: 
+```{r}
+library(ggplot2)
+ggplot(forestFires, aes(X0))+geom_histogram(binwidth = 0.5)
+```
+Algo similar ocurre con la variable X70.06, que presenta también un sesgo positivo. Sin embargo, con la variable X91 ocurre lo inverso, es decir, presenta un sesgo negativo:
+```{r}
+ggplot(forestFires, aes(X91))+geom_histogram(binwidth = 0.5)
+```
+Pues, como se observa en el gráfico, los datos se concentran a la derecha, quedando una cola larga a la izquierda. 
+
+```{r}
+kurtosis(forestFires)
+```
+Por último, los valores de curtosis nos indican como de picuda es la distribución en el centro. Por ejemplo, X0 y X70.76 son especialmente picudas en 0. Está claro que ambas variables no siguen una distribucion normal. 
+
+### Visualización
+
+Para entender mejor los datos, hacemos un gráfico con *ggpairs* que nos dará información sobre correlación de las variables y gráficos en pares de las mismas: 
+```{r}
+library("GGally")
+ggpairs(data=forestFires)
+```
+
+A simple vista en este primer plot, podemos ver que parece que la variable respuesta (X70.76) que representa el área de bosque quemada, tiene una correlación inferior a 0.1 con cualquiera de las otras variables. También podemos verlo en los minigráficos que nos crea, donde parece que el valor de las otras variables no influye en el valor de X70.76. Por ejemplo, representamos X1 frente a X70.76 para ilustrarlo mejor:
+```{r}
+plot(forestFires$X70.76,forestFires$X1)
+```
+donde podemos ver que, sin importar si X1 toma valor 0, 2, 6 o 9, el valor del área calcinada es mayoritariamente inferior a 200 hectáreas, a excepción de dos puntos que podrían ser outliers. Lo mismo ocurre con el resto de variables, por ejemplo, x825.1:
+```{r}
+plot(forestFires$X70.76,forestFires$X825.1)
+```
+
+donde, aparentemente, sus valores no influyen significtivamente en el área calcinada. Si analizamos de nuevo la variable salida:
+```{r}
+ggplot(forestFires, aes(X70.76))+geom_histogram(binwidth = 1)
+```
+recordemos que esta variable presentaba un sesgo positivo muy grande, dado que la mayoría de sus valores se concentraba a la izquierda de la distribución. En concreto, se concentran mayoritariamente en el valor 0, significando esto que en la mayoría de los incendios recogidos el número de hectáreas quemadas fue 0 (inferior a los 100m2). Sin embargo, los puntos más distantes y menos frecuentes correspondientes a hectáreas quemadas de mayor tamaño parecen no ser outliers, sino casos menos frecuentes intrínsecos en los datos. Probamos a aplicar una tansformación logaritmica que solucione este problema en dicha variable, en concreto *ln(x+1)* tal y como recomiendan los autores del dataset en la descripción del mismo: [http://www3.dsi.uminho.pt/pcortez/forestfires/forestfires-names.txt]("pcortez/forestfires/forestfires-names.txt"). 
+
+```{r}
+ggplot(forestFires, aes(log1p(X70.76)))+geom_histogram(binwidth = 1)
+```
+Vemos que con la transformación mejora la dispersión de los datos con respecto a su forma original. Por ejemplo, si ahora la volvemos a representar frente a X825.1:
+```{r}
+plot(log1p(forestFires$X70.76),forestFires$X825.1)
+```
+
+Vemos que los datos ahora están más despegados de la izquierda, y aunque no presentan un patrón insituitivo visible, sí se podría intentar utilizarlos para explicar la salida. 
+Con el propósito de entender mejor los datos, podemos ver en qué meses y días de los mismos de distribuyen los incendios:
+```{r}
+par(mfrow=c(1,2))
+barplot(table(forestFires$X9),col = "yellow", xlab="mes",horiz=TRUE,
+        main="Incendios registrados/mes")
+barplot(table(forestFires$X7),col = "yellow", xlab="día",horiz=TRUE,
+        main="Incendios registrados/día")
+
+```
+
+Vemos que el mayor número de incendios se registra en los meses de agosto y septiembre con mucha diferencia del resto de meses. Les siguen los meses de marzo y julio, con 54 y 32 incendios registrados respectivamente, mientras que los meses que menos incendios presentan son los meses de invierno junto con abril y mayo. Con respecto a los días, los días de la semana en de los que más incendios hay registrados son fines de semana, especialmente el Domingo (94), seguido de sábado (84) y viernes (85). 
+Si representamos los días que ha habido incendios frente a los meses:
+
+```{r}
+counts<-table(forestFires$X7,forestFires$X9)
+barplot(counts,col=c("skyblue","red","yellow","forestgreen","lightpink","orange","purple"),
+        legend =c("lunes","martes","miércoles","jueves","viernes","sábado","domingo"),
+        xlab = "mes",main = "Incendios registrados en días de la semana/mes")
+```
+
+Podemos ver que en los meses 8 y 9 (agosto y septiembre) que son los meses con más incendios registados, la mayoría de los incendios en estos meses se producen en fines de semana y viernes. Si representamos ahora la lluvia en mm/m2 frente a los meses:
+```{r}
+plot((forestFires$X0),forestFires$X9,xlab = "lluvia en mm/m2", ylab = "mes",
+     main = "lluvia en mm/m2 por mes",pch=15,col="blue")
+```
+
+Observamos que, en general para cualquier mes cuando se produjeron incendios no llovió, excepto en agosto, que es el mes donde más registros de lluvia se tienen, habiendo un día en el que se registraron 6.4 mm/m2, seguramente por una tormenta de verano. 
+
+También podemos representar la temperatura el celsius frente al mes:
+
+```{r}
+plot(forestFires$X21.9,forestFires$X9,pch=20,col="orange",xlab = "temperatura (Cº)",ylab="mes",
+     main = "temperatura (Cº) / mes")
+```
+
+Parece coherente que los meses de invierno tengan registradas temperaturas más bajas que los meses de verano, así como que los en los meses de verano se registren las temperaturas más altas, por lo tanto, estas variables podrían estar explicadas la una en la otra. 
+
+Éste dataset contiene 12 variables (más la variable respuesta). Tras leer lo que representa cada variable en la descripción del dataset que dan los autores, citada más arriba, era lógico pensar que algunas variables guardaran relaciones entre sí, por ejemplo, el FFMC (fuel moisture code) que influye en la rapidez de propagación del fuego y 
+el ISI, una medida relacionada con la velocidad de propagación del fuego. Si los representamos:
+
+```{r}
+plot(forestFires$X91,forestFires$X7.1,pch=20,col="red",xlab="FFMC", ylab = "ISI",
+     main = "ISI versus FFMC")
+```
+
+Vemos que ambas variables están relacionadas exponencialmente según la tendencia que presentan en sus datos. Si representamos X91 (FFMC) frente a las otras variables(excepto la salida):
+
+```{r}
+par(mfrow=c(2,2))
+plot(forestFires$X91,forestFires$X1,pch=20,col="red",xlab="FFMC", ylab = "X Coord in Park ",
+     main = "X1 versus FFMC (X91)")
+plot(forestFires$X91,forestFires$X3,pch=20,col="red",xlab="FFMC", ylab = "Y Coord in Park ", 
+     main = "X3 versus FFMC (X91)")
+par(mfrow=c(2,2))
+plot(forestFires$X91,forestFires$X9,pch=20,col="red",xlab="FFMC", ylab = "month",
+     main = "X9 versus FFMC (X91)")
+plot(forestFires$X91,forestFires$X7,pch=20,col="red",xlab="FFMC", ylab = "day",
+     main = "X7 versus FFMC (X91)")
+par(mfrow=c(2,2))
+plot(forestFires$X91,forestFires$X276.3,pch=20,col="red",xlab="FFMC", ylab = "DMC",
+     main = "X276.3 versus FFMC (X91)")
+plot(forestFires$X91,forestFires$X825.1,pch=20,col="red",xlab="FFMC", ylab = "DC",
+     main = "X825.1 versus FFMC (X91)")
+par(mfrow=c(2,2))
+plot(forestFires$X91,forestFires$X21.9,pch=20,col="red",xlab="FFMC", ylab = "temp",
+     main = "X21.9 versus FFMC (X91)")
+plot(forestFires$X91,forestFires$X43,pch=20,col="red",xlab="FFMC", ylab = "RH", 
+     main = "X43 versus FFMC (X91)")
+par(mfrow=c(2,2))
+plot(forestFires$X91,forestFires$X4,pch=20,col="red",xlab="FFMC", ylab = "wind", 
+     main = "X4 versus FFMC (X91)")
+plot(forestFires$X91,forestFires$X0,pch=20,col="red",xlab="FFMC", ylab = "rain",
+     main = "X0 versus FFMC (X91)")
+```
+
+Podemos observar en las gráficas que X91 (el FFMC) parece estar relacionado también con las variables X276.3 (DMC) de forma exponencial, y también con X825.1 (DC) y X21.9 (temperatura), por tanto, si hubiera que hacer una selección de variables, quizás esta variable no la consideraríamos para el modelo. Tampoco consideraríamos X1 y X3, que son las variables que indican la coordenada X e Y respectivamente, dentro del parque Montesino donde se registran los incendios, pues no parecen guardar ninguna relación con la variable salida ni con ninguna otra. Seguramente también excluiríamos a la variable mes (X9), pues parece estar explicada por la variable temperatura, como hemos comentado antes. 
+
+Dada la similitud de la variable DMC (X276.3) con FFMC (X91) descartada anteriormente, analizamos DMC más a fondo:
+
+```{r}
+par(mfrow=c(2,2))
+plot(forestFires$X276.3,forestFires$X1,pch=20,col="red",xlab="DMC", ylab = "X Coord in Park ",
+     main = "X1 versus DMC")
+plot(forestFires$X276.3,forestFires$X3,pch=20,col="red",xlab="DMC", ylab = "Y Coord in Park ",
+     main = "X3 versus DMC")
+par(mfrow=c(2,2))
+plot(forestFires$X276.3,forestFires$X9,pch=20,col="red",xlab="DMC", ylab = "month", 
+     main = "X9 versus DMC")
+plot(forestFires$X276.3,forestFires$X7,pch=20,col="red",xlab="DMC", ylab = "day", 
+     main = "X7 versus DMC")
+par(mfrow=c(2,2))
+plot(forestFires$X276.3,forestFires$X91,pch=20,col="red",xlab="DMC", ylab = "FFMC", 
+     main = "X276.3 versus DMC")
+plot(forestFires$X276.3,forestFires$X825.1,pch=20,col="red",xlab="DMC", ylab = "DC",
+     main = "X825.1 versus DMC")
+par(mfrow=c(2,2))
+plot(forestFires$X276.3,forestFires$X21.9,pch=20,col="red",xlab="DMC", ylab = "temp",
+     main = "X21.9 versus DMC")
+plot(forestFires$X276.3,forestFires$X43,pch=20,col="red",xlab="DMC", ylab = "RH", 
+     main = "X43 versus DMC")
+par(mfrow=c(2,2))
+plot(forestFires$X276.3,forestFires$X4,pch=20,col="red",xlab="DMC", ylab = "wind",
+     main = "X4 versus DMC")
+plot(forestFires$X276.3,forestFires$X0,pch=20,col="red",xlab="DMC", ylab = "rain", 
+     main = "X0 versus DMC")
+```
+
+DMC (X276.3) representa el código de humedad (druff moisture code), medida utilizada para medir la humedad de las capas superficiales y profundas del suelo. Podemos observar que parece que tiene una relación con X9 (el mes), presentando valores de humedad del subsuelo más bajos en meses de invierno y otoño y más altos en verano. Esto tiene sentido pues, en los datos registrados, la mayoría de las lluvias se registraban en meses de verano, especialmente en agosto, quizá por tormentas de verano. También observamos que X276.3 o DMC presenta una relación logaritmica con la variable FFMC (X91), y también parece estar relacionada con DC (X825.1), variable que mide la sequía del suelo, pues parece que a mayor sequía en la capa superficial más humedad hay en las capas profundas. También parece que X276.3 guarda una relación polinómica con X21.9 (la temperatura). Podemos concluir entonces que, si tuviéramos que seleccionar variables para ajustar un modelo, quizás tampoco tendríamos en cuenta a DMC (X276.3) ni a DC (X825.1). 
+
+
+**Conclusiones del EDA:**
+
+Aunque no hemos analizado las 13 variables intensamente, este EDA realizado nos ha servido para descubrir ciertas cosas sobre el dataset como que:
+
+- la variable respuesta Área (X70.76) presenta un sesgo positivo muy grande y necesita una transformación  
+- Se producen más incendios en meses de verano (meses con temperaturas más altas)
+- la mayoría de los incendios se producen en viernes y fines de semana
+- X1 y X3 parecen ser independientes de todas las demás variables
+- en la mayoría de los incendios no llovió
+- Los meses de verano son los meses con más lluvias registradas, especialmente agosto
+- Las variables mes (X9) y temperatura (temp) están relacionadas
+- La variable FFMC (X91) está relacionada exponencialmente con la variable ISI (X7.1)
+- La variable FFMC (X91) está relacionada con X276.3 (DMC) de forma exponencial, y también con X825.1 (DC) y X21.9 (temperatura)
+- La variable DMC (X276.3) tiene una relación con X9 (el mes)
+- La variable DMC (X276.3) presenta una relación logaritmica con la variable FFMC (X91)
+- La variable DMC (X276.3) parece estar relacionada con DC (X825.1) y con X21.9 (la temperatura)
+- La variable día (X7) no parece estar relacionada con ninguna otra variable
+
+Aunque ninguna variable presenta a simple vista una relación directa con la variable respuesta Área (X70.76), podemos concluir que estamos ante un dataset que incluye bastantes variables relacionadas entre sí que se explican unas a otras y que algunas de las variables presentan sesgos y desplazamientos en su distribución, por lo que será importante transformar y normalizar algunas de estas variables. Además, contiene varias variables nominales como el día, mes o RH que será conveniente convertir en variables "dummy" o variables indicadoras, ya que pasar el array numérico tal cual indicaría que hay un orden entre las categorías de la variable que en este caso realmente no existe.  
+
+
+## Apartado Regresión
+
+### Regresión Lineal Simple
+
+Dado el límite de 5 modelos lineales simples, se seleccionarán 5 de las 12 variables del dataset para ajustar cada uno de dichos modelos. 
+
+Remiténdonos al EDA realizado anteriormente, se descartarán las variables:
+- MES (X9) por su relación con temperatura y otras variables
+- FFMC (X91) por su relación clara con ISI (X7.1), X276.3 (DMC), X825.1 (DC) y temperatura (X21.9)
+- DMC (X276.3) por su relación con el MES (X9), FFMC (X91), DC (X825.1) y temperatura (X21.9)
+- X1 y X3 (cordenadas en el parque), pues no parecen aportar nada a la variable salida y a otras variables
+- DÍA (X7) pues tampoco parece aportar mucha información
+
+Partiendo de 6 variables descartadas, aún nos queda elegir 5 entre otras 6: DC (X825.1), ISI (X7.1), TEMP (X21.9),RH (X43), WIND (X4) y RAIN (X0). Comenzamos analizando DC (X825.1):
+
+```{r}
+par(mfrow=c(2,3))
+plot(forestFires$X825.1,forestFires$X7.1,pch=20,col="purple",xlab="DC", ylab = "ISI",
+     main = "X825.1 versus X7.1")
+plot(forestFires$X825.1,forestFires$X21.9,pch=20,col="purple",xlab="DC", ylab = "temp",
+     main = "X825.1 versus X21.9")
+plot(forestFires$X825.1,forestFires$X43,pch=20,col="purple",xlab="DC", ylab = "Rh", 
+     main = "X825.1 versus X43")
+plot(forestFires$X825.1,forestFires$X4,pch=20,col="purple",xlab="DC", ylab = "wind",
+     main = "X825.1 versus X4")
+plot(forestFires$X825.1,forestFires$X0,pch=20,col="purple",xlab="DC", ylab = "rain",
+     main = "X825.1 versus X0")
+```
+Vemos que parece tener una relación polinómica con ISI (X7.1). Analizamos ahora ISI (X7.1):
+
+```{r}
+par(mfrow=c(2,3))
+plot(forestFires$X7.1,forestFires$X825.1,pch=20,col="pink",xlab="ISI", ylab = "DC",
+     main = "X7.1 versus X825.1")
+plot(forestFires$X7.1,forestFires$X21.9,pch=20,col="pink",xlab="ISI", ylab = "temp",
+     main = "X7.1 versus X21.9")
+plot(forestFires$X7.1,forestFires$X43,pch=20,col="pink",xlab="ISI", ylab = "Rh",
+     main = "X7.1 versus X43")
+plot(forestFires$X7.1,forestFires$X4,pch=20,col="pink",xlab="ISI", ylab = "wind",
+     main = "X7.1 versus X4")
+plot(forestFires$X7.1,forestFires$X0,pch=20,col="pink",xlab="ISI", ylab = "rain",
+     main = "X7.1 versus X0")
+```
+Observamos de nuevo la relación polinónica con DC y también una relación que podría modelarse como lineal con la temperatura (X21.9), por tanto, descartamos ISI (X7.1) para ajustar nuestros modelos lineales. Hemos seleccionado, por tanto, 5 variables de las cuales 4 representan condiciones meteorológicas: X21.9 (temperatura), X43 (Humedad relativa), X4 (viento) y X0 (lluvia), y DC que representa el código de sequía del suelo (X825.1). Si representamos la temperatura frente a las otras 4 variables seleccionadas:
+```{r}
+par(mfrow=c(2,4))
+plot(forestFires$X21.9,forestFires$X825.1,pch=20,col="yellow",xlab="temp", ylab = "DC",
+     main = "X21.9 versus X825.1")
+plot(forestFires$X21.9,forestFires$X43,pch=20,col="yellow",xlab="temp", ylab = "Rh", 
+     main = "X21.9 versus X43")
+plot(forestFires$X21.9,forestFires$X4,pch=20,col="yellow",xlab="temp", ylab = "wind",
+     main = "X21.9 versus X4")
+plot(forestFires$X21.9,forestFires$X0,pch=20,col="yellow",xlab="temp", ylab = "rain",
+     main = "X21.9 versus X0")
+```
+Observamos que no hay relaciones evidentes entre las variables, si bien sí que parece que a temperaturas más altas menor es la humedad relativa. Podemos comprobar que lo mismo ocurre con la humedad relativa, el viento y la lluvia:
+
+```{r}
+par(mfrow=c(2,4))
+plot(forestFires$X43,forestFires$X825.1,pch=20,col="darkolivegreen3",xlab="RH", ylab = "DC", 
+     main = "X43 versus X825.1")
+plot(forestFires$X43,forestFires$X21.9,pch=20,col="darkolivegreen3",xlab="RH", ylab = "temp",
+     main = "X43 versus X21.9")
+plot(forestFires$X43,forestFires$X4,pch=20,col="darkolivegreen3",xlab="RH", ylab = "wind",
+     main = "X43 versus X4")
+plot(forestFires$X43,forestFires$X0,pch=20,col="darkolivegreen3",xlab="RH", ylab = "rain",
+     main = "X43 versus X0")
+par(mfrow=c(2,4))
+plot(forestFires$X4,forestFires$X825.1,pch=20,col="deepskyblue4",xlab="wind", ylab = "DC",
+     main = "X4 versus X825.1")
+plot(forestFires$X4,forestFires$X21.9,pch=20,col="deepskyblue4",xlab="wind", ylab = "temp",
+     main = "X4 versus X21.9")
+plot(forestFires$X4,forestFires$X43,pch=20,col="deepskyblue4",xlab="wind", ylab = "RH", 
+     main = "X4 versus X4")
+plot(forestFires$X4,forestFires$X0,pch=20,col="deepskyblue4",xlab="wind", ylab = "rain",
+     main = "X4 versus X0")
+par(mfrow=c(2,4))
+plot(forestFires$X0,forestFires$X825.1,pch=20,col="darkred",xlab="rain", ylab = "DC",
+     main = "X0 versus X825.1")
+plot(forestFires$X0,forestFires$X21.9,pch=20,col="darkred",xlab="rain", ylab = "temp", 
+     main = "X0 versus X21.9")
+plot(forestFires$X0,forestFires$X43,pch=20,col="darkred",xlab="rain", ylab = "RH", 
+     main = "X0 versus X4")
+plot(forestFires$X0,forestFires$X4,pch=20,col="darkred",xlab="rain", ylab = "wind",
+     main = "X0 versus X0")
+```
+
+Ya que tenemos las 5 variables seleccionadas sobre las que hacer nuestro modelo de regresión, aplicamos un pequeño preprocesamiento en el que convertiremos las variables nominales en variables "dummy" o indicativas:
+
+```{r}
+mes.f = factor(forestFires$X9)
+dummiesmes = model.matrix(~mes.f)
+dummiesmes=dummiesmes[,-1]
+forestFires$X9<-dummiesmes
+
+dia.f = factor(forestFires$X7)
+dummiesdia = model.matrix(~dia.f)
+dummiesdia=dummiesdia[,-1]
+forestFires$X7<-dummiesdia
+
+```
+Dividimos el dataset en un conjunto de train y otro de test. Para train dejaremos el 80% del dataset mientras que reservaremos el 20% para test. Con el fin de que los resultados sean replicables, establecemos una semilla antes de partir los datos. Una vez partidos los datos, ajustamos los 5 modelos:
+```{r}
+set.seed(1)
+trainIndex<-as.integer(nrow(forestFires)*0.80,replace=FALSE)
+randomdata<-sample(1:nrow(forestFires),trainIndex)
+train <- forestFires[randomdata,] 
+test <- forestFires[-randomdata,] 
+
+fit1=lm(log1p(X70.76)~X825.1,data=train)
+fit2=lm(log1p(X70.76)~X21.9,data=train)
+fit3=lm(log1p(X70.76)~X43,data=train)
+fit4=lm(log1p(X70.76)~X4,data=train)
+fit5=lm(log1p(X70.76)~X0,data=train)
+summary(fit1)
+summary(fit2)
+summary(fit3)
+summary(fit4)
+summary(fit5)
+```
+Podemos observar que para los 5 modelos obtenemos un RSE cercano a 0, lo cual indica que el modelo se ajusta bastante bien a los datos (quizás demasiado bien). También para todos los modelos se obtiene un $R^2$ muy bajo cercano a 0, lo cual denota que lejos de seguir una tendencia lineal, los puntos más bien son aleatorios, además en todos los casos obtenemos un p-valor superior a 0.05 en los 5 modelos, por lo que no podemos rechazar la hipótesis nula de que el coeficiente real sea 0. 
+
+Por último, calculamos el error en test para cada uno de los 5 modelos creados. Como a la variable respuesta (X70.76) le aplicamos una transformación logaritmica (log(x+1)), a la salida del modelo le aplicamos la inversa de dicha función ($e^x-1$):
+```{r}
+yprime1=predict(fit1,test)
+yprime1=expm1(yprime1)
+yprime2=predict(fit2,test)
+yprime2=expm1(yprime2)
+yprime3=predict(fit3,test)
+yprime3=expm1(yprime3)
+yprime4=predict(fit4,test)
+yprime4=expm1(yprime4)
+yprime5=predict(fit5,test)
+yprime5=expm1(yprime5)
+#cálculo RMSE
+mse1=sqrt(sum(abs(test$X70.76-yprime1)^2)/length(yprime1))
+mse2=sqrt(sum(abs(test$X70.76-yprime2)^2)/length(yprime2))
+mse3=sqrt(sum(abs(test$X70.76-yprime3)^2)/length(yprime3))
+mse4=sqrt(sum(abs(test$X70.76-yprime4)^2)/length(yprime4))
+mse5=sqrt(sum(abs(test$X70.76-yprime5)^2)/length(yprime5))
+
+mse1
+mse2
+mse3
+mse4
+mse5
+```
+Observamos que sobre el mismo conjunto de train y test, los 5 modelos obtienen RMSE muy parecido, si bien difieren en algunas décimas. En general, los 5 modelos obtenidos son bastante malos, deduciendo que no se puede modelar el comportamiento de la variable salida con sólo una variable. 
+Aunque ningún modelo es bueno, de los 5 modelos podemos decir que quizás el menos malo es el de la variable X21.9 (la temperatura), ya que tiene el mayor $R²$ y $R^2$ Ajustado, y el menor p-valor, a pesar de que su RMSE es unas décimas más elevado para test que otros modelos. 
+
+
+### Regresión Lineal Múltiple
+
+Usaremos los datos de test y train particionados para el apartado anterior. Comenzamos ajustando una regresión múltiple sobre todas las variables:
+```{r}
+fitall<-lm(log1p(X70.76)~.,train)
+summary(fitall)
+```
+Vemos que obtenemos un modelo muy malo de RSE= 1.376, pero con un $R^2$ ajustado de 0.0171 y un p-valor muy superior a 0.05. Calculamos su error de test. Como parece que la temperatura (X21.9) es una variable influyente en la salida y que su coeficiente es distinto de 0, comenzamos a construir el modelo partiendo de esta variable. Como desde uun principio sabemos que los datos no presentan interacciones lineales, hacemos uso de la no linealidad:
+```{r}
+fittmp<-lm(log1p(X70.76)~X21.9+I(X21.9^2),train)
+summary(fitall)
+```
+Dado el bajo $R^2$ ajustado y el alto p-valor, el modelo no nos sirve. Continuamos añadiendo otras variables:
+```{r}
+fittmp<-lm(log1p(X70.76)~X21.9+I(X21.9^2)+X825.1+X43+X4+X0,train)
+summary(fitall)
+```
+Obtenemos similar $R^2$ y p-valor al modelo anterior. Vamos pensando y probando interaciones, hasta que encontramos un modelo que usa interacciones y no linealinealidad con un p-valor bajo: 
+```{r}
+fit1Rlm<-lm(log1p(X70.76)~X21.9+I(X21.9^2)+I(X21.9^2*X43)+I(X0*X43)+I(X4)+X43*X825.1,train)
+#fit1Rlm<-lm(log1p(X70.76)~X21.9+I(X21.9^2)+I(X21.9^2*X43)+I(X0^2*X43^2)+I(X4^2)+X43*X825.1,train)
+#fit1Rlm<-lm(log1p(X70.76)~X21.9+I(X21.9^2)+I(X21.9^2*X43)+I(X0^2*X43^2)+I(X4^2)+X43*X825.1,train)
+
+#fit1Rlm<-lm(log1p(X70.76)~X21.9+I(X21.9^2)+I(X21.9^2*X43)+I(X0^2*X43^2)+I(X4^2)+X43*X825.1,train)
+
+summary(fit1Rlm)
+```
+Usando las 5 variables seleccionadas, encontamos este modelo con un $R^2$ ajustado de 0.03075, superior al del anterior y lo más alto encontrado por ahora, y además tenemos un p-valor de 0.0081 que es inferior a 0.05, por lo que se rechaza la hipótesis nula. Si calculamos su error para test:
+
+```{r}
+yprime=predict(fit1Rlm,test)
+yprime=expm1(yprime)
+sqrt(sum(abs(test$X70.76-yprime)^2)/length(yprime))
+```
+Obtenemos un error muy similar al que obtuvimos con los modelos lineales simples del primer apartado. Al no tener una relación clara, estos datos son difícles de modelar. 
+
+### k-NN para regresión no paramétrica
+
+Comenzamos con el mejor modelo encontrado en el apartado anterior. Leemos las particiones tal y como hemos hecho en clase, le aplicamos un poco de preprocesamiento a los datos, como hemos hecho en apartados anteriores y utilizamos el modelo del apartado anterior para ajustar:
+```{r}
+setwd("/home/cris/mrcrstnherediagmez@gmail.com/Intro_Ciencia_de_datos/Trabajo Final/Datasets Regresion/forestFires")
+
+nombre <- "forestFires"
+run_lm_fold <- function(i, x, tt = "test") {
+file <- paste(x, "-5-", i, "tra.dat", sep="")
+x_tra <- read.csv(file, comment.char="@")
+file <- paste(x, "-5-", i, "tst.dat", sep="")
+x_tst <- read.csv(file, comment.char="@")
+In <- length(names(x_tra)) - 1
+names(x_tra)[1:In] <- paste ("X", 1:In, sep="")
+names(x_tra)[In+1] <- "Y"
+names(x_tst)[1:In] <- paste ("X", 1:In, sep="")
+names(x_tst)[In+1] <- "Y"
+# creando variables indicativas para mes y día
+mes.f.tra = factor(x_tra$X3)
+mes.f.tst = factor(x_tst$X3)
+dummiesmes.tra = model.matrix(~mes.f.tra)
+dummiesmes.tst = model.matrix(~mes.f.tst)
+dummiesmes.tra=dummiesmes.tra[,-1]
+dummiesmes.tst=dummiesmes.tst[,-1]
+x_tra$X3<-dummiesmes.tra
+x_tst$X3<-dummiesmes.tst
+
+dia.f.tra = factor(x_tra$X4)
+dia.f.tst = factor(x_tst$X4)
+dummiesdia.tra = model.matrix(~dia.f.tra)
+dummiesdia.tst = model.matrix(~dia.f.tst)
+dummiesdia.tra=dummiesdia.tra[,-1]
+dummiesdia.tst=dummiesdia.tst[,-1]
+x_tra$X4<-dummiesdia.tra
+x_tst$X4<-dummiesdia.tst
+
+if (tt == "train") {
+  test <- x_tra
+}else{
+  test <- x_tst
+}
+fitMulti=lm(log1p(Y)~X9+I(X9^2)+I(X9^2*X10)+I(X12*X10)+I(X11)+X10*X7,x_tra)
+yprime=predict(fitMulti,test)
+yprime=expm1(yprime)
+sum(abs(test$Y-yprime)^2)/length(yprime) ##MSE
+}
+lmMSEtrain<-mean(sapply(1:5,run_lm_fold,nombre,"train"))
+lmMSEtest<-mean(sapply(1:5,run_lm_fold,nombre,"test"))
+```
+Vemos el MSE que obtenemos para train y test con el modelo de Reresión múltiple:
+```{r}
+lmMSEtrain
+lmMSEtest
+```
+Ahora repetimos el mismo procedimiento, pero usando knn en lugar de regresión múltiple para las mismas particiones:
+
+```{r}
+setwd("/home/cris/mrcrstnherediagmez@gmail.com/Intro_Ciencia_de_datos/Trabajo Final/Datasets Regresion/forestFires")
+
+require("kknn")
+nombre <- "forestFires"
+run_lm_fold <- function(i, x, tt = "test") {
+file <- paste(x, "-5-", i, "tra.dat", sep="")
+x_tra <- read.csv(file, comment.char="@")
+file <- paste(x, "-5-", i, "tst.dat", sep="")
+x_tst <- read.csv(file, comment.char="@")
+In <- length(names(x_tra)) - 1
+names(x_tra)[1:In] <- paste ("X", 1:In, sep="")
+names(x_tra)[In+1] <- "Y"
+names(x_tst)[1:In] <- paste ("X", 1:In, sep="")
+names(x_tst)[In+1] <- "Y"
+
+if (tt == "train") {
+  test <- x_tra
+}else{
+  test <- x_tst
+}
+fitMulti=kknn(log1p(Y)~X9+I(X9^2)+I(X9^2*X10)+I(X12*X10)+I(X11)+X10*X7,x_tra,test)
+yprime=fitMulti$fitted.values
+yprime=expm1(yprime)
+sum(abs(test$Y-yprime)^2)/length(yprime) ##MSE
+}
+lmMSEtrain<-mean(sapply(1:5,run_lm_fold,nombre,"train"))
+lmMSEtest<-mean(sapply(1:5,run_lm_fold,nombre,"test"))
+```
+```{r}
+lmMSEtrain
+lmMSEtest
+```
+
+y comparamos. Vemos que para train obtuvimos un MSE en train de 4156.586 para regresión múltiple, frente a 3821.7 obtenido con knn. Para MSE en test, obtenemos que los dos algoritmos rinden de forma muy similar, obteniendo con regresión múltiple MSE en test=4167.963 y 4150.948 con knn. Por tanto, ante los datos podemos decir que parece que knn redce el error en test levemente con respecto al otro algoritmo.
+
+### 4. Comparativa de resultados 
+
+En el apartado anterior no se usaron todas las variables para ajustar los modelos de regresión múltiple y knn, por tanto, repetimos el proceso usando todas las variables. Además como las comparaciones han de ser genéricas e incluyen al algoritmo M5, que no sabemos si aplica transformación o no en la variable response, tampoco aplicaremos dicha transformación a dicha variable en RM y knn. Finalmente anotamos las salidas en *regr_test_alumnos.csv* y  *regr_train_alumnos.csv*. 
+```{r}
+setwd("/home/cris/mrcrstnherediagmez@gmail.com/Intro_Ciencia_de_datos/Trabajo Final/Datasets Regresion/forestFires")
+
+nombre <- "forestFires"
+run_lm_fold <- function(i, x, tt = "test") {
+file <- paste(x, "-5-", i, "tra.dat", sep="")
+x_tra <- read.csv(file, comment.char="@")
+file <- paste(x, "-5-", i, "tst.dat", sep="")
+x_tst <- read.csv(file, comment.char="@")
+In <- length(names(x_tra)) - 1
+names(x_tra)[1:In] <- paste ("X", 1:In, sep="")
+names(x_tra)[In+1] <- "Y"
+names(x_tst)[1:In] <- paste ("X", 1:In, sep="")
+names(x_tst)[In+1] <- "Y"
+
+if (tt == "train") {
+  test <- x_tra
+}else{
+  test <- x_tst
+}
+fitMulti=lm(Y~.,x_tra)
+yprime=predict(fitMulti,test)
+#yprime=expm1(yprime)
+sum(abs(test$Y-yprime)^2)/length(yprime) ##MSE
+}
+lmMSEtrain<-mean(sapply(1:5,run_lm_fold,nombre,"train"))
+lmMSEtest<-mean(sapply(1:5,run_lm_fold,nombre,"test"))
+lmMSEtrain
+lmMSEtest
+```
+```{r}
+setwd("/home/cris/mrcrstnherediagmez@gmail.com/Intro_Ciencia_de_datos/Trabajo Final/Datasets Regresion/forestFires")
+
+require("kknn")
+nombre <- "forestFires"
+run_lm_fold <- function(i, x, tt = "test") {
+file <- paste(x, "-5-", i, "tra.dat", sep="")
+x_tra <- read.csv(file, comment.char="@")
+file <- paste(x, "-5-", i, "tst.dat", sep="")
+x_tst <- read.csv(file, comment.char="@")
+In <- length(names(x_tra)) - 1
+names(x_tra)[1:In] <- paste ("X", 1:In, sep="")
+names(x_tra)[In+1] <- "Y"
+names(x_tst)[1:In] <- paste ("X", 1:In, sep="")
+names(x_tst)[In+1] <- "Y"
+
+if (tt == "train") {
+  test <- x_tra
+}else{
+  test <- x_tst
+}
+fitMulti=kknn(Y~.,x_tra,test)
+yprime=fitMulti$fitted.values
+#yprime=expm1(yprime)
+sum(abs(test$Y-yprime)^2)/length(yprime) ##MSE
+}
+lmMSEtrain<-mean(sapply(1:5,run_lm_fold,nombre,"train"))
+lmMSEtest<-mean(sapply(1:5,run_lm_fold,nombre,"test"))
+lmMSEtrain
+lmMSEtest
+```
+Una vez que tenemos los datos anotados, leemos las tablas:
+```{r}
+setwd("/home/cris/mrcrstnherediagmez@gmail.com/Intro_Ciencia_de_datos/Trabajo Final/")
+#errores medios de test
+resultados <- read.csv("regr_test_alumnos.csv")
+tablatst <- cbind(resultados[,2:dim(resultados)[2]])
+colnames(tablatst) <- names(resultados)[2:dim(resultados)[2]]
+rownames(tablatst) <- resultados[,1]
+
+#errores medios de train
+resultados <- read.csv("regr_train_alumnos.csv")
+tablatra <- cbind(resultados[,2:dim(resultados)[2]])
+colnames(tablatra) <- names(resultados)[2:dim(resultados)[2]]
+rownames(tablatra) <- resultados[,1]
+```
+y aplicamos el test de Wilcoxon para comparar los algoritmos de knn y MR:
+
+```{r}
+difs <- (tablatst[,1] - tablatst[,2]) / tablatst[,1]
+wilc_1_2 <- cbind(ifelse (difs<0, abs(difs)+0.1, 0+0.1), ifelse (difs>0, abs(difs)+0.1, 0+0.1))
+colnames(wilc_1_2) <- c(colnames(tablatst)[1], colnames(tablatst)[2])
+head(wilc_1_2)
+# Se aplica el test 
+LMvsKNNtst <- wilcox.test(wilc_1_2[,1], wilc_1_2[,2], alternative = "two.sided", paired=TRUE)
+Rmas <- LMvsKNNtst$statistic
+pvalue <- LMvsKNNtst$p.value
+LMvsKNNtst <- wilcox.test(wilc_1_2[,2], wilc_1_2[,1], alternative = "two.sided", paired=TRUE)
+Rmenos <- LMvsKNNtst$statistic
+Rmas  
+Rmenos 
+pvalue 
+```
+Obtenemos un $R^+$ de 78, un $R^-$ de 93 y un p-valor de 0.7660294, que a un nivel significativo de 0.05 podemos decir que no son distintos, o dicho de otra forma, hay un (1-0.7660294)*100 = 23.4% de confianza en que sean distintos. La diferencia no es significativa.
+
+### Comparativa múltiple de algoritmos
+Comparamos los dos algoritmos anteriores con M5, usando Friedman y Holms. para ello usaremos los datos de tabla test:
+```{r}
+test_friedman <- friedman.test(as.matrix(tablatst))
+test_friedman$p.value 
+```
+Obtenenos un p-valor muy bajo de 0.01466602, por lo que opdemos afirmar a un nivel significativo de 0.05 que existen diferencias en, al menos un par de algoritmos (M5 con algún otro). 
+Aplicamos por pares el test de post-hoc Holm:
+```{r}
+tam <- dim(tablatra)
+groups <- rep(1:tam[2], each=tam[1])
+pairwise.wilcox.test(as.matrix(tablatra), groups, p.adjust = "holm", paired = TRUE)
+```
+concluyendo que para 3 vs 1 y 3 vs 2 obtienen el mismo valor 0.0032, por lo que no hay diferencias significativas a favor de M5. Los otros dos pueden ser considerados equivalentes, ya que 1 vs 2 = 2 vs 1 = 0.0031 y 1 vs 3 = 2 vs 3 = 0.0032.
+
+Si observamos los datos, de las tablas, podemos ver que los mejores resultados de train se obtienen para KNN con un error de 2206.328, sin embargo los mejores resultados en test los da RM con un error de 4060.943, mientras que los peores los da KNN con un error de 5840.684. Podemos deducir por tanto que KNN está sobreajustando los datos, de tal forma que el error de train obtenido es el más bajo pero en test se dispara. Sin considerar KNN por su problema de sobreajuste, según las comparativas el mejor modelo sería MR, pues obtiene, tanto en train como en test un error más bajo que M5, y tiene un buen balance de error train-test, por lo que no parece estar sobreajustando.
+```{r}
+tablatra[11,]
+tablatst[11,]
+```
+
+## Análisis de los datos de Clasificación
+Para clasificación se me asignó el conjunto de datos **tae**.
+### Cálculo de estadísticos y descripción de los datos
+```{r,message=FALSE}
+setwd("/home/cris/mrcrstnherediagmez@gmail.com/Intro_Ciencia_de_datos/Trabajo Final/Datasets Clasificacion/tae/")
+tae<-read.csv("tae.dat", comment.char="@")
+str(tae)
+summary(tae)
+```
+Se trata de un data frame de 5 variables más la variable clase, donde todas las variables son de tipo entero. El dataset contiene 150 filas. Con **summary** podemos hacernos una primera idea de cómo es el dataset: por ejemplo, vemos que la variable X1 es una variable categórica que solo toma valores 1 y 2, que la variable X23 toma valores entre 1 y 25  y que parece estar bien distribuida. La variable X3 toma valores entre 1 y 26, X1.1 es otra varible categórica que toma valores entre 1 y 2 y X19 toma valores entre 3 y 66. Por último, la clase (X3.1) toma valores entre 1 y 3, y parece estar bien distribuida, por lo que seguramente el número de muestras de cada clase esté balanceado.
+No hay diferencias entre medias y medianas llamativas, por lo que no parece a primera vista que ninguna variable presente algún sesgo importante. 
+
+Pasamos a calcular medidas de dispersión como la desviación estándar(SD), desviación absoluta media(MAD), asimetría y curtosis y el rango intercuartílico (IQR), aunque antes, de nuevo comprobamos si hay valores perdidos en el dataset o repetidos:
+```{r}
+sum(which(is.na(tae)))
+duplicated(tae)
+```
+El dataset no tiene ningún valor perdido. Calculamos la media, mediana y desviación típica de cada variable:
+```{r}
+apply(tae,2,mean)
+apply(tae,2,median)
+apply(tae,2,sd)
+```
+Vemos que hay variables que será interesante analizar con más detalle, como X19, ya que a pesar de que su media y mediana son casi idénticas, presenta una desviación típica más alta que ningua otra variable. También merece análisis la variable X3, ya que su media y mediana son muy distantes, y su desviación típica está en torno a 7, lo cual indica que los datos presentan alguna anomalía o variabilidad en su distribución. Calculamos la MAD (median absolute deviation), que calcula la media de las desviaciones absolutas a la mediana: 
+```{r}
+apply(tae,2,mad)
+```
+Vemos que las variables X1 y X1.1 no presentan desviación absoluta con respecto a su mediana, al contrario del resto de variables. La variable clase (X3.1) sí presenta desviación con respecto a su mediana, aunque no muy grane. De nuevo, resulta llamativo el alto valor MAD de la variable X19. 
+Calculamos el rango intercuartil (IQR) de las variables, por ser la medida de variabilidad más robusta.Se calcula a partir de los cuartiles 1º y 3º:
+
+```{r}
+apply(tae,2,quantile)
+apply(tae,2,IQR)
+```
+Con *quantile* calculamos los tres cuartiles de cada variable. El IQR define el rango en el que se encuentran el 50% de los valores, por lo que se dice que es una medida muy robusta. Observamos que las variables X19, X3 y X23 presentan valores de IQR más altos y por lo tanto variabilidad en los datos. Podemos saber más sobre el tipo de variabilidad que presentan calculando el *skewness* y *curtosis*, que nos darán información de cómo de asimétricas y picudas son las distribuciones:
+```{r}
+library(moments)
+skewness(tae)
+```
+Como mencionamos anteriormente, valores de _skewness_ positivos o negativos lejanos a 0 indican un sesgo o desplazamiento en la distribución. En este dataset la mayoría de las variables tienen un valor de skewness cercano a 0, por lo que no presentan desplazamientos grandes o importantes. Las variables X1.1 y X1 sí presentan un pequeño sesgo negativo (los datos se concentran a la derecha de la distribución):
+
+```{r}
+library(ggplot2)
+par(mfrow=c(1,2))
+plot1<-ggplot(tae, aes(X1))+geom_histogram(binwidth = 0.5)
+plot2<-ggplot(tae, aes(X1.1))+geom_histogram(binwidth = 0.5)
+gridExtra::grid.arrange(plot1,plot2)
+```
+que si los representamos, recordamos que X1 y X1.1 eran variables categóricas y por tanto, ese "desplamiento" se debe a que hay más valores en la 2º categoría que en la 1º.
+
+```{r}
+library(ggplot2)
+par(mfrow=c(1,2))
+plot1<-ggplot(tae, aes(X23))+geom_histogram(binwidth = 0.5)
+plot2<-ggplot(tae, aes(X3))+geom_histogram(binwidth = 0.5)
+plot3<-ggplot(tae, aes(X19))+geom_histogram(binwidth = 0.5)
+plot4<-ggplot(tae, aes(X3.1))+geom_histogram(binwidth = 0.5)
+gridExtra::grid.arrange(plot1,plot2,plot3,plot4)
+```
+Del resto de variables podemos decir que X3 y X19 presentan un pequeño sesgo positivo, tal y como se aprecia en sus histogramas, X23 presenta un pequeño sesgo negativo y X3.1 (la variable clase) está bastante bien distribuida. Esto último lo podemos ilustrar también con una tabla de contingencia:
+```{r}
+table(tae$X3.1)
+```
+Donde vemos que la dos primeras clases contienen 36 muestras y la tercera clase contiene 38. Por último, podemos calcular la curtosis de la distribución, que nos indicará como de picuda es la distribución en el centro:
+
+```{r}
+kurtosis(tae)
+```
+Vemos que el mayor pico lo presenta X1.1 donde se concentran los datos de la segunda categoría. También contiene un pico X1 por la misma razón. X3 presenta un pico en torno al valor 3 y X19 en torno al valor 20.
+
+### Visualización
+
+Lo primero que vamos a hacer es cambiar los nombres de las variables, para hacer más intuitiva su representación:
+```{r}
+names(tae)
+names(tae)<-c("native","instructor","course","summerORsemester","classSize","class")
+```
+
+Una vez cambiados los nombres, representamos individualmente cada una de las 6 variables:
+
+```{r}
+p1<-qplot(factor(tae$native))
+p2<-qplot(factor(tae$instructor))
+p3<-qplot(factor(tae$course))
+p4<-qplot(factor(tae$summerORsemester))
+p5<-qplot(factor(tae$classSize))
+p6<-qplot(factor(tae$class))
+gridExtra::grid.arrange(p1,p2,p3,p4,p5,p6)
+```
+Vemos que todas son variables nominales que quizás sería conveniente "dumizar" para convertirlas en variables indicativas antes de ajustar el modelo de clasificación, o normalizarlas, por ejemplo "native", "summerORsemester" o "classSize". 
+
+Podemos ver cómo se distribuye una variable con respecto a otra, por ejemplo, la clase frente a si el profesor es nativo:
+```{r}
+boxplot(native~class,data=tae,xlab="class",ylab="native",main="class boxplot")
+```
+
+Vemos que todos los profesores nativos están en la clase 3, mientras que en las clases 1 y 2 no hay profesores asistentes que sean nativos (que tengan inglés como lengua materna).
+
+Si representamos los instructores del curso frente a la clase:
+```{r}
+boxplot(instructor~class,data=tae,xlab="class",ylab="instructor",main="class boxplot")
+```
+
+No estoy segura de lo que la variable "instructor" representa, pero si representa el "identificador" del profesor que impartió dicho curso, no creo que nos pueda servir de mucho en nuestro modelo, si bien es cierto que no todos los instructores tienen el mismo número de evaluaciones recogidas en el dataset, por ejemplo "1" aparece 3 veces y "13" aparece 10 veces.
+
+Si representamos el curso frente a la clase:
+```{r}
+boxplot(course~class,data=tae,xlab="class",ylab="course",main="class boxplot")
+```
+
+Recordamos que la variable "class" denota la puntuación obtenida por esos profesores, que puede ser baja, media o alta (1,2,3 respectivamente). Podemos observar en el gráfico que las puntuaciones bajas (clase 1) vienen de cursos enumerados entre 1 y 8, aunque algunos de estos valores se solapan con los de las clases 2 y 3. Dicho de otra manera, profesores de cursos con numeración inferior a 2.5 obtienen mala calificación. Profesores de cursos con numeración entre 2.5 y 7.5 pueden obtener calificación "Low"(clase 1), "medium"(clase 2) o "high"(clase 3), profesores de cursos con numeración entre 7.5 y 15 obtienen calificación "medium" o "high" y profesores de cursos con numeración superior a 15 obtienen de calificación "medium"(clase 2), a excepción de tres outliers que pertenecen a la clase 1 y que tienen valores de curso superior a 15. Parece que esta variable aporta bastante información a la salida.
+
+Si analizamos si se impartió en verano o durante un semestre, frente a la clase:
+```{r}
+boxplot(summerORsemester~class,data=tae,xlab="class",ylab="summer OR semester",main="class boxplot")
+```
+Observamos que ocurre algo parecido a lo que ocurría con la variable "native". Tenemos que los profesores que obtuvieron una puntuación de "high" (clase 3) absolutamente todos dieron clase durante semestres regulares, mientras que los que obtuvieron "low" (clase 1) o "medium"(clase 2), dieron clase durante el verano. Parece que dar clase durante un sememestre regular y ser nativo son motivo de una puntuación "high" (clase 3). ¿Pero qué hace que se obtenga una puntuación "medium" o "low" además de no ser nativo y dar clase solo en cursos de verano? Seguimos analizando variables.
+
+La última variable que nos queda por analizar es el tamaño de la clase frente a la variable clase:
+```{r}
+boxplot(classSize~class,data=tae,xlab="class",ylab="class size",main="class boxplot")
+```
+Vemos que el tamaño de la clase no es un atributo que discrimine mucho por sí solo, pero sí que se aprecia en el boxplot que en clases de menos de 20 estudiantes, la nota del profesor es "medium" (clase 2). También podemos ver que para la clase 1 (puntuación "low"), la media de alumnos por clase a sido de ~30 alumnos, aunque hay un outlier de más de 60 alumnos por clase. Para la clase 2 (puntuación "medium"), la media de alumnos por clase ha sido de ~23, si bien la mayoría de las clases donde el profesor o profesora obtuvo "medium" tenía entre 23 y 38 alumnos por clase. Para la clase 3 (puntuación "high") la media de alumnos por clase era de 25, si bien la mayoría de los profesores con puntuación "high" dió clase en aulas con entre 25 y 38 alumnos.
+
+Por último, para asegurarnos de si los datos siguen una distribución normal o cercana a ella, hacemos QQ-plots de las variables nominales:
+```{r}
+par(mfrow=c(1,3))
+qqnorm(tae$instructor)
+qqline(tae$instructor)
+qqnorm(tae$course)
+qqline(tae$course)
+qqnorm(tae$classSize)
+qqline(tae$course)
+```
+Y observamos que la variable instructor parece que sí sigue una distribución normal, pero no la variable "course" o "classSize", que habría que normalizarlas antes de aplicar el modelo.
+Las variables categóricas "native", "summerORsemester" y "class" no las representamos por ser categóricas.
+
+## Apartado Clasificación
+### k-NN con diferentes valores de k
+
+En primer lugar aplicamos un pequeño preprocesamiento. Las variables "native" y "summerORSemester" que tomaban valor 1  o 2, las cambiamos para que tomen valor 1 o 0, y convertimos en variables dummy el resto de variables nominales, convirtiendolas en variables indicativas. Por último, convertimos la variable "class" en factores para poder aplicar KNN:
+```{r}
+taeKnn<-tae
+library(dummies)
+taeKnn$native<-ifelse(taeKnn$native==2,0,1)
+taeKnn$summerORsemester<-ifelse(taeKnn$summerORsemester==2,0,1)
+taeKnn$course<-dummy(taeKnn$course)
+taeKnn$classSize<-dummy(taeKnn$classSize)
+taeKnn$instructor<-dummy(taeKnn$instructor)
+taeKnn$class<-as.factor(taeKnn$class)
+```
+Creamos conjuntos de train y test y sus respectivas etiquetas:
+```{r}
+shuffle_ds <- sample(dim(taeKnn)[1])
+traindat <- (dim(taeKnn)[1] * 80) %/% 100
+tae_train <- taeKnn[shuffle_ds[1:traindat], ]
+tae_test <- taeKnn[shuffle_ds[(traindat+1):dim(taeKnn)[1]], ]
+
+tae_train_labels <- taeKnn[shuffle_ds[1:traindat], ncol(taeKnn)]
+tae_test_labels <- taeKnn[shuffle_ds[(traindat+1):dim(taeKnn)[1]], ncol(taeKnn)]
+```
+Entrenamos el modelo usando **caret**, especificando que queremos que nos encuentre el mejor k entre 1 y 20. Para que el modelo sea replicable, fijamos una semilla:
+```{r}
+require(caret)
+set.seed(6)
+knnModel <- train(x = tae_train, y = tae_train_labels, method = "knn",metric="Accuracy",
+                  tuneGrid = data.frame(.k=1:20))
+class(knnModel)
+knnModel
+plot(knnModel)
+```
+Vemos que el mejor modelo lo obtiene con k=14, con un accuracy de 0.9050387   y un valor kappa de 0.8562562, por lo que parece que es un modelo bastante bueno. Para evaluarlo, calculamos el error en test usando caret y de forma manual, para comprobar que es correcto:
+```{r}
+knnPred <- predict(knnModel, newdata =tae_test)
+knnPred
+postResample(pred = knnPred, obs = taeKnn[shuffle_ds[(traindat+1):dim(taeKnn)[1]], ncol(taeKnn)])
+prediction<-predict(knnModel,tae_test)
+d<-table(prediction,tae_test_labels)
+sum(diag(d))/sum(d)
+1-sum(diag(d))/sum(d) 
+```
+Vemos que obtenemos un accuracy en test de 0.9666667 y un error en test de (1-0.9666667)=0.03333, mejorando el resultado que hay anotado en la tabla de *clasif_test_alumnos.csv* para KNN, siendo en la tabla el error de 0.383809523809524. También mejora el error de train, que es de (1-0.9532644)=0.0467356 frente a 0.526346047540077 que hay anotado en la tabla de *clasif_train_alumnos.csv*.
+
+### LDA
+
+Como cada algoritmo funciona de forma diferente, por ejemplo LDA necesita de datos normalizados y con clases convarianzas similares, el preprocesamiento aplicado en el paso anterior funciona muy bien para KNN,pero quizás no tan bien para LDA, dado que, tal como están los datos, solo una variable tiene varianza distinta de 0. Por tanto, les aplicamos otro preprocesamiento más acorde al algoritmo al que nos enfrentamos:
+
+Comenzamos calculando la varianza de las variables:
+```{r}
+apply(tae,2,var)
+```
+Vemos que tenemos dos variables predictoras ("native" y "summerORsemester") con varianzas cercanas a 0, sin embargo, en principio no las vamos a eliminar porque son variables que aportan mucha información. Lo siguiente que haremos es calcular la matriz de correlaciones:
+```{r}
+cor(tae)
+```
+Vemos que las mayores correlaciones positivas que presenta la clase son con las variables "native" y "summerORsemester", aunque juzgar por el valor de correlación no parece una correlación muy fuerte. Se aprecia una correlación negativa entre "summer OR semester" y "course" y otra correlación positiva entre "summer OR semester" y "classSize". También parecen correladas "native" e "instructor", aunque en ningún caso los valores de correlación con elevados. Para constrastar los resultados, calculamos la covarianza:
+```{r}
+cov(tae)
+```
+Podemos ver que "course" e "instructor" son los únicos que presentan una covarianza alta y, en este caso, negativa de -11.0683221. Puesto que "course" además está relacionada con "classSize" aunque no demasiado, eliminaremos "course" del modelo. En el resto de variables no se aprecian dependencias significativas. 
+
+Como LDA asume que las variables siguen una distribución normal, las normalizamos como paso previo al ajuste:
+```{r}
+taeLda<-tae
+taeLda$native<-scale(taeLda$native,center = TRUE)
+taeLda$instructor<-scale(taeLda$instructor,center = TRUE)
+taeLda$summerORsemester<-scale(taeLda$summerORsemester,center = TRUE)
+taeLda$classSize<-scale(taeLda$classSize,center = TRUE)
+taeLda$class<-as.factor(taeLda$class)
+```
+
+```{r}
+shuffle_ds <- sample(dim(taeLda)[1])
+traindat <- (dim(taeLda)[1] * 80) %/% 100
+tae_train <- taeLda[shuffle_ds[1:traindat], ]
+tae_test <- taeLda[shuffle_ds[(traindat+1):dim(taeLda)[1]], ]
+
+tae_train_labels <- taeLda[shuffle_ds[1:traindat], ncol(taeLda)]
+tae_test_labels <- taeLda[shuffle_ds[(traindat+1):dim(taeLda)[1]], ncol(taeLda)]
+```
+
+```{r}
+library(MASS)
+library(ISLR)
+set.seed(2)
+lda.fit<-lda(class~native+instructor+summerORsemester+classSize,data=tae_train)
+lda.fit
+```
+```{r}
+lda.pred<-predict(lda.fit,tae_test)
+mean(lda.pred$class==tae_test$class)
+d<-table(lda.pred$class,tae_test_labels)
+sum(diag(d))/sum(d)
+1-sum(diag(d))/sum(d) 
+```
+
+### QDA
+Utilizando los mismos datos de antes y los mismos conjuntos de train y test:
+```{r}
+library(MASS)
+library(ISLR)
+set.seed(2)
+qda.fit<-qda(class~native+instructor+summerORsemester+classSize,data=tae_train)
+lda.fit
+```
+
+```{r}
+qda.pred<-predict(qda.fit,tae_test)
+mean(qda.pred$class==tae_test$class)
+d<-table(qda.pred$class,tae_test_labels)
+sum(diag(d))/sum(d)
+1-sum(diag(d))/sum(d) 
+```
+
+### Comparar los resultados de los tres algoritmos
+
+Puesto que antes no hemos validado los resultados de los modelos con varias particiones, vamos a hacer uso de caret para hacer 10 particiones de los datos para hacer CV. Como hemos guardado una copia de cada dataset preprocesado para cada algoritmo, los podemos usar directamente. Empezamos haciendo validación cruzada con 10 particiones para el modelo de KNN:
+```{r}
+taeKnntrainIndex <- createDataPartition(taeKnn$class, p = .8,
+                                  list = F,
+                                  times = 1)
+taeKnnTrain <- taeKnn[taeKnntrainIndex, ]
+taeKnnTest <- taeKnn[-taeKnntrainIndex, ]
+table(taeKnnTrain$class)
+
+fitControl <- trainControl(method = "repeatedcv",
+                           number = 10,
+                           repeats = 10)
+knnfit <- train(x=taeKnnTrain,y=taeKnnTrain$class,
+                  method = "knn",
+                  trControl = fitControl,
+                  tuneGrid = data.frame(.k=1:20),
+                  metric = "Accuracy")
+knnfit
+
+prediction <- predict(knnfit, taeKnnTest)
+TestAccuracy <- postResample(prediction,taeKnnTest$class)
+TestAccuracy
+```
+
+Hacemos lo mismo para LDA: 
+```{r}
+taeLdatrainIndex <- createDataPartition(taeLda$class, p = .8,
+                                  list = F,
+                                  times = 1)
+taeLdaTrain <- taeLda[taeLdatrainIndex, ]
+taeLdaTest <- taeLda[-taeLdatrainIndex, ]
+table(taeLdaTrain$class)
+
+fitControl <- trainControl(method = "repeatedcv",
+                           number = 10,
+                           repeats = 10)
+ldafit <- train(class~.,taeLdaTrain,method="lda",trControl = fitControl,metric="Accuracy")
+  
+ldafit
+
+prediction <- predict(ldafit, taeLdaTest)
+TestAccuracy <- postResample(prediction,taeLdaTest$class)
+TestAccuracy
+```
+Y para QDA:
+```{r}
+taeLdatrainIndex <- createDataPartition(taeLda$class, p = .8,
+                                  list = F,
+                                  times = 1)
+taeLdaTrain <- taeLda[taeLdatrainIndex, ]
+taeLdaTest <- taeLda[-taeLdatrainIndex, ]
+table(taeLdaTrain$class)
+
+fitControl <- trainControl(method = "repeatedcv",
+                           number = 10,
+                           repeats = 10)
+qdafit <- train(class~.,taeLdaTrain,method="qda",trControl = fitControl,metric="Accuracy")
+  
+qdafit
+
+prediction <- predict(qdafit, taeLdaTest)
+TestAccuracy <- postResample(prediction,taeLdaTest$class)
+TestAccuracy
+```
+Como queremos añadir los resultados a las tablas para copararlos de forma general, no hemos especificado variables predictoras en lda y qda ,a diferencia de como hicimos arriba. Ante estos datos, podemos concluir que en media en las 10 particiones, se han obtenido mejores resultados con KNN para este dataset, quizás por su alto contenido de variables categóricas y nominales, mientras que entre LDA y QDA no se aprecia gran diferencia en calidad.
+

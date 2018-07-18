@@ -1,0 +1,95 @@
+---
+title: Trabajo de Reglas de Asociación - Aprendizaje no supervisado y detección de
+  anomalías
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+date: "1-3-2018"
+author: Mª Cristina Heredia Gómez
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Para esta práctica se ha elegido inspeccionar el dataset Zoo del paquete **data**. Puesto que el dataset consta de algunas variables numéricas como "legs" es necesario convertir las columnas a factores. 
+### Preprocesamiento
+
+```{r}
+has_legs <- Zoo[["legs"]]>0
+Zoo[["legs"]] <- has_legs
+#pasamos a factores todas las columnas
+Zoo[,1:16]<-lapply(Zoo[, 1:16],as.factor)
+```
+En primera instancia, como la  variable "legs" toma valores entre  0 y 8, la transformamos a una variable binaria que toma valores TRUE o FALSE, en función de si el animal no tiene piernas o tiene alguna pierna. Tras esto, se pasan todas las columnas del dataset a tipo factor para poder crear las transcicciones que necesita Apriori.
+
+### Búsqueda de reglas
+
+Tras crear las transacciones se visualizan los items y se analiza su frecuencia.
+```{r echo=FALSE}
+image(zoo)
+```
+Se observa que hay items como el 20 que figuran en muchas transacciones, mientras que hay otros como el 35 o el 40, que figuran en muy pocas.
+```{r echo=FALSE}
+itemFrequencyPlot(zoo, support=0.2)
+```
+En el gráfico de los itemsets frecuentes se observa que hay pocos animales sin piernas, que no respiren, que no vuelen o que se transporten por el aire. Sin embargo, hay items muy frecuentes como no tener plumas, no ser venenoso o no tener aletas. Parece interesante pues centrar la búsqueda incial en torno a los animales que no tienen piernas. 
+
+Tras lanzar Apriori para extraer reglas con minSop=0.2 ,conf=0.85 y minlen=2 inicialmente y filtrar por mayor valor de lift, se filtran aquellas reglas en las que aparezca el tipo "mamífero" dado que aparecía dentro de los items frecuentes en poca medida y queríamos estudiarlo mejor junto con el item "piernas". Tras la poda de reglas relevantes, obtuve las siguientes 6 reglas de 2 items en el antecedente:
+
+```
+lhs                            rhs              support   confidence lift     count
+[1] {milk=TRUE,type=mammal}     => {breathes=TRUE}  0.4059406 1          1.262500 41   
+[2] {milk=TRUE,type=mammal}     => {feathers=FALSE} 0.4059406 1          1.246914 41   
+[3] {milk=TRUE,type=mammal}     => {backbone=TRUE}  0.4059406 1          1.216867 41   
+[4] {milk=TRUE,type=mammal}     => {venomous=FALSE} 0.4059406 1          1.086022 41   
+[5] {breathes=TRUE,type=mammal} => {feathers=FALSE} 0.4059406 1          1.246914 41   
+[6] {breathes=TRUE,type=mammal} => {backbone=TRUE}  0.4059406 1          1.216867 41 
+```
+ que dicen cosas del tipo si da leche y es mamífero entonces respira, o si da leche y es mamífero no tiene plumas. Además, todas ellas dan una confianza del 100%, por tanto, no nos cuentan nada nuevo. Seguí buscando, manteniendo el mismo soporte y confianza pero esta vez filtrando las reglas que tuvieran que ver algo con mi otro punto de mira: las piernas. Obtuve lo siguiente:
+ 
+```
+lhs                            rhs              support   confidence lift     count
+[1] {hair=FALSE,legs=FALSE}     => {airborne=FALSE} 0.2178218 1.0000000  1.311688 22   
+[2] {airborne=FALSE,legs=FALSE} => {hair=FALSE}     0.2178218 0.9565217  1.665667 22   
+[3] {hair=FALSE,legs=FALSE}     => {feathers=FALSE} 0.2178218 1.0000000  1.246914 22   
+[4] {feathers=FALSE,legs=FALSE} => {hair=FALSE}     0.2178218 0.9565217  1.665667 22   
+[5] {hair=FALSE,legs=FALSE}     => {domestic=FALSE} 0.2079208 0.9545455  1.095558 21   
+[6] {legs=FALSE,domestic=FALSE} => {hair=FALSE}     0.2079208 0.9545455  1.662226 21 
+``` 
+Ojeando las reglas, vemos que hay algunas, por ejemplo la `[4]` que empiezan a parecer curiosas. La mayoría de los animales que no tienen plumas ni piernas, no tienen pelo. Lógico, los peces, un claro ejemplo. Pero la confianza de esa regla es  0.9565. Dicho de otra forma, sí que hay algún animal que, sin tener plumas ni piernas, tiene pelo. Lo buscamos:
+```{r}
+which(Zoo$feathers==FALSE & Zoo$legs==FALSE & Zoo$hair==TRUE)
+Zoo[75,]
+```
+
+¡y encontamos a la foca! Aumentando un poco el tamaño mínimo de las reglas que estamos buscando (esta vez lo fijamos en 3) pero de nuevo, filtrando por los animales que no tienen piernas encontramos otra regla interesante:
+```
+[1] {hair=FALSE,feathers=FALSE,airborne=FALSE,legs=FALSE} => {domestic=FALSE} 0.2079208 0.9545455  1.095558 21    0.04411765     
+leverage   phi    gini       
+[1] 0.01813548 0.1312 0.003860832 
+```
+La mayoría de los animales sin pelo ni plumas, ni piernas que no vuelan no son domésticos con un 95% de confianza, un soporte del 20% y un lif de 1.09. Pero entonces hay algunos animales en los datos sin pelo ni plumas, ni piernas que no vuelan y que sí son domésticos. ¿Cuáles? ¿una iguana? ¿una serpiente? Lo buscamos:
+```{r}
+which(Zoo$feathers==FALSE & Zoo$legs==FALSE & Zoo$hair==FALSE & Zoo$airborne==FALSE & Zoo$domestic==TRUE)
+Zoo[8,]
+```
+y encontramos la carpa. Pues sí, gente que tiene carpas de mascota. 
+Como a medida que se aumenta el tamaño de los itemsets con el filtro de no tener piernas no se generan reglas, pasamos a mirar los animales que sí tienen piernas. Buscamos itemsets de mínima longitud cinco, manteniendo el soporte mínimo en 0.2 y la confianza mínima en 0.9:
+```
+lhs                                                              rhs             support   confidence lift  count
+[1] {eggs=TRUE,milk=FALSE,airborne=TRUE,breathes=TRUE,legs=TRUE}  => {toothed=FALSE} 0.2178218 1          2.525 22   
+[2] {eggs=TRUE,milk=FALSE,airborne=TRUE,fins=FALSE,legs=TRUE}     => {toothed=FALSE} 0.2178218 1          2.525 22   
+[3] {eggs=TRUE,airborne=TRUE,breathes=TRUE,fins=FALSE,legs=TRUE}  => {toothed=FALSE} 0.2178218 1          2.525 22   
+[4] {milk=FALSE,airborne=TRUE,breathes=TRUE,fins=FALSE,legs=TRUE} => {toothed=FALSE} 0.2178218 1          2.525 22   
+hyperConfidence leverage  phi       gini    
+[1] 0.8382353       0.1315557 0.6516775 0.203162
+[2] 0.8382353       0.1315557 0.6516775 0.203162
+[3] 0.8382353       0.1315557 0.6516775 0.203162
+[4] 0.8382353       0.1315557 0.6516775 0.203162
+```
+Pero solo encontamos reglas con confianza 100% que no nos dicen mucho nuevo. 
+
+### Items negados
+Se incluye experimentación con items negados tal como se pide en la prácica. 
