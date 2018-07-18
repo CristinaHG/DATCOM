@@ -1,0 +1,355 @@
+---
+output:
+  pdf_document: default
+  author: Mª Cristina Heredia Gómez
+---
+
+```{r}
+setwd("/home/cris/Descargas")
+data<-read.csv("my_dataset_train.csv")
+datatst<-read.csv("my_dataset_test.csv")
+dim(data)
+dim(datatst)
+is.na(data)
+is.na(dim(datatst))
+```
+
+```{r}
+# analizar variables factores
+## cuales son factores
+sapply(data, is.factor)
+sapply(datatst, is.factor)
+```
+## cuantos son factores
+```{r}
+sum(sapply(data, is.factor))
+perdidosX0<-length(which(data$x0==""))
+perdidosX14<-length(which(data$x14==""))
+perdidosx17<-length(which(data$x17==""))
+perdidosx51<-length(which(data$x51==""))
+perdidosx61<-length(which(data$x61==""))
+perdidosx63<-length(which(data$x63==""))
+perdidosX0
+perdidosX14
+perdidosx17
+perdidosx51
+perdidosx61
+perdidosx63
+
+## Conclusiones:
+#- X0,X14,X17,X51 y X63 son Factors
+#- los valores perdidos son entre 2 y 5 /columna
+#- las columnas con valores perdidos son X0,X14,X17,X51 y X63
+#- X0 tiene 5 missing 
+#- X14 tiene 5 missing 
+#- X17 tiene 4 missing 
+#- X51 tiene 2 missing 
+#- X61 tiene 3 missing 
+#- X63 tiene 5 missing 
+#- SUGERENCIA: como hay pocos valores perdidos en los factores (<25) eliminar las filas directamente
+```
+
+
+```{r}
+# Análisis valores numéricos
+## cuantos valores na y nan hay
+sum(apply(data, 2, is.nan)) # no hay nan
+sum(apply(data, 2, is.na)) # hay 245 na
+sum(apply(datatst,2,is.nan)) # no hay nan en test
+sum(apply(datatst,2,is.na)) # 66 nas en test
+```
+
+```{r}
+## cuales son las columnas con na's
+apply(apply(data, 2,is.na), 2, sum)
+apply(apply(datatst,2,is.na),2,sum)
+```
+
+```{r}
+## cuantos na's hay por cada columna
+which(apply(apply(data, 2,is.na), 2, sum) != 0)
+which(apply(apply(datatst, 2,is.na), 2, sum) != 0)
+```
+
+```{r}
+## que columnas tienen más nas
+sort(which(apply(apply(data, 2,is.na), 2, sum) != 0),decreasing = T)
+sort(which(apply(apply(datatst, 2,is.na), 2, sum) != 0),decreasing = T)
+
+```
+
+```{r}
+## cuantas columnas hay con nas
+length(which(apply(apply(data, 2,is.na), 2, sum) != 0))
+length(which(apply(apply(datatst, 2,is.na), 2, sum) != 0))
+
+## Conclusiones 
+#- x1  x2  x3  x4  x5  x6  x8  x9 x10 x11 x12 x13 x15 x16 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 #x35 x36 x37 x38 x39 x40 x41 x42 x43 x44 x45 x46 x47 x48 x49 x50 x52 x53 x54 x55 x56 x57 x58 x59 x60 x62 x64 x65 x66 x67 x68 #x69 x70 x72 x73 x74 tienen na's
+#- hay 67 columnas con nas
+#- x74 x73 x72 x70 x69 son las que más NAS tienen : 75  74  73  71  70
+#- el número de NAs es el índice de la variable +1
+#- SUGERENCIA: aplicar imputación por KNN
+```
+
+```{r}
+# Análisis de dependencia:
+require(dplyr)
+(data.numeric <- data %>% na.omit() %>% dplyr::select_if(is.numeric))
+cor(data.numeric)
+apply(cor(data.numeric),2,function(i){
+  which(i>0.8)
+})
+
+(data.numerictst <- datatst %>% na.omit() %>% dplyr::select_if(is.numeric))
+cor(data.numerictst)
+apply(cor(data.numerictst),2,function(i){
+  which(i>0.8)
+})
+
+## Conclusiones:
+#- X41 y X48 están correladas con valor superior a 0.8
+```
+
+```{r}
+#proporción de datos /clase ates de imputar
+table(data$y)
+
+#  0   1   2   3 
+#249 620 920 939 
+
+```
+
+```{r}
+#quitar columnas correladas e imputar valores perdidos de x48
+
+#cual tiene más valores perdidos
+which(is.na(data$x41)) #train
+which(is.na(data$x48)) #train
+which(is.na(datatst$x41)) #test
+which(is.na(datatst$x48)) #test
+# calculamos los valores de x48 que faltan a partir de x41
+escalar<-43.38980659714715
+data$x48[703]<-data$x41[703]/escalar
+data$x48[995]<-data$x41[995]/escalar
+data$x48[1928]<-data$x41[1928]/escalar
+data$x48[2535]<-data$x41[2535]/escalar
+#comprobamos que ya no hay NAs en x48
+which(is.na(data$x48))
+data <- data %>% dplyr::select(-x41)
+datatst <- datatst %>% dplyr::select(-x41)
+```
+
+```{r}
+# aplicamos imputación por KNN
+library("robCompositions")
+require("mice")
+completos<-mice::ncc(data)
+incompletos<-mice::nic(data)
+completos
+incompletos
+```
+
+```{r}
+# IMPUTACIÓN DE DATOS NUMERICOS
+#data.numeric.with.nas<-data %>%  dplyr::select_if(is.numeric) %>% select(x69,x70,x72,x73)
+data.numeric.with.nas<-data %>%  dplyr::select_if(is.numeric)#train
+data.numeric.with.nas.tst<-datatst %>%  dplyr::select_if(is.numeric)
+imputados=robCompositions::impKNNa(data.numeric.with.nas,metric = "Euclidean")#train
+imputadostst=robCompositions::impKNNa(data.numeric.with.nas.tst,metric = "Euclidean")
+imputados#train
+imputadostst #test
+plot(imputados,which=2)#train
+plot(imputadostst,which=2)
+
+df<-as.data.frame(imputados$xImp)#train
+dftst<-as.data.frame(imputadostst$xImp)#test
+```
+
+```{r}
+#IMPUTACIÓN DE DATOS CATEGÓRICOS POR MODA POR CLASE
+trainFactors<-data %>% dplyr::select_if(is.factor)
+testFactors<-datatst %>% dplyr::select_if(is.factor)
+sum(data$x0=="")
+sum(data$x14=="")
+sum(data$x17=="")
+sum(data$x51=="")
+sum(data$x61=="")
+sum(data$x63=="")
+
+#missing en test
+sum(datatst$x0=="")
+sum(datatst$x14=="")
+sum(datatst$x17=="")
+sum(datatst$x51=="")
+sum(datatst$x61=="")
+sum(datatst$x63=="")
+
+TrainClasses<-data$y
+
+imputefactors<-function(col){
+  missing<-which(col=="")
+  for(i in missing){
+    col[i]<-colnames(table(data$y,col))[which.max(table(data$y,col)[TrainClasses[i]+1,])]
+  }
+  col
+}
+
+data$x0<-imputefactors(data$x0)
+data$x14<-imputefactors(data$x14)
+data$x17<-imputefactors(data$x17)
+data$x51<-imputefactors(data$x51)
+data$x61<-imputefactors(data$x61)
+data$x63<-imputefactors(data$x63)
+
+# IMPUTACIÓN DE DATOS CATEGÓRICOS POR LA MODA
+Mode <- function(c) {
+  mode<-levels(c)[which.max(table(c))]
+  mode
+}
+
+imputeByMode<-function(c){
+  missing<-which(c=="")
+  mod<-Mode(c)
+  for(i in missing){
+    c[i]<-mod
+  }
+c  
+}
+
+data$x0<-imputeByMode(data$x0)
+data$x14<-imputeByMode(data$x14)
+data$x17<-imputeByMode(data$x17)
+data$x51<-imputeByMode(data$x51)
+data$x61<-imputeByMode(data$x61)
+data$x63<-imputeByMode(data$x63)
+#imputar en test usando train
+which(datatst$x0=="")
+datatst$x0[280]<-data$x0[280]
+datatst$x0[497]<-data$x0[497]
+which(datatst$x17=="")
+datatst$x17[116]<-data$x17[116]
+datatst$x17[524]<-data$x17[524]
+which(datatst$x51=="")
+datatst$x51[392]<-data$x51[392]
+which(datatst$x61=="")
+datatst$x61[480]<-data$x61[480]
+
+
+dataTrain<-cbind.data.frame(df,data %>% select_if(is.factor))
+dataTest<-cbind.data.frame(dftst,datatst %>% select_if(is.factor))#test
+
+#FEATURE SELECTION
+#library(caret)
+#library(mlbench)
+#ctrl <- rfeControl(functions = caretFuncs,
+#                   method = "repeatedcv",
+#                   repeats = 5,
+#                   verbose = FALSE)
+#classindex<-which(colnames(dataTrain)=="y")
+
+#caretProfile <- rfe(dataTrain[,-classindex], as.factor(dataTrain[, classindex]),
+#                 sizes = c(10:20,30,40,50,60),
+#                 rfeControl = ctrl)
+#print(caretProfile)
+#predictors(caretProfile)
+#plot(caretProfile)
+
+library(Boruta)
+classindex<-which(colnames(dataTrain)=="y")
+boruta<-Boruta(x=dataTrain[,-classindex],y=as.factor(dataTrain[, classindex]))
+dataTrain<-cbind(dataTrain[,which(boruta$finalDecision != "Rejected")],dataTrain %>% dplyr::select(y))
+dataTest<-dataTest[,which(boruta$finalDecision != "Rejected")]
+plot(boruta)
+```
+
+
+
+```{r}
+## Atajando Desbalanceo
+library(caret)
+# creamos dataset downsampled y oversampled
+classindex<-which(colnames(dataTrain)=="y")
+dataDownsampled<-downSample(dataTrain[,-classindex], as.factor(dataTrain[, classindex])) # train
+dataUpsampled<-upSample(dataTrain[,-classindex], as.factor(dataTrain[, classindex])) #train
+
+# ajustamos modelo KNN1 para comparar 
+TrainIndex <- createDataPartition(dataUpsampled$Class, p = .8,
+                                  list = F,
+                                  times = 1)
+Train <- dataUpsampled[TrainIndex, ]
+Test <- dataUpsampled[-TrainIndex, ]
+
+
+fitControl <- trainControl(method = "repeatedcv",
+                           number = 10,
+                           repeats = 10)
+# For example, in problems where there are a low percentage of samples
+# in one class, using metric = "Kappa" can improve quality of the final model.
+#knnModel <- train(Class ~ .,
+ #                 data = Train,
+#                  method = "knn",
+#                  preProcess = c("center", "scale"),
+#                  trControl = fitControl,
+#                  tuneGrid=expand.grid(k=1),
+#                  metric = "Kappa")
+#knnModel
+#knnPredict <- predict(knnModel, Test)
+#(knnacc <- postResample(pred = knnPredict,
+#             obs = Test$Class))
+
+# SMOTE
+#library(unbalanced)
+#n<-ncol(df)
+#output<-df$y
+#input<-df[ ,-n]
+
+#dataSmote<-ubSMOTE(X=input, Y= output)
+#newData<-cbind(dataSmote$X, dataSmote$Y)
+```
+
+
+```{r}
+# con ripper
+#TrainClasses<-Train$Class
+fitControl <- trainControl(method = "repeatedcv",
+                           number = 10,
+                           repeats = 10)
+ripper.fit <- caret::train(Class ~ .,Train,
+                  method = "JRip",
+                  preProcess = c("center", "scale"),
+                  trControl = fitControl,metric = "Kappa")
+ripper.fit
+ripperPredict <- predict(ripper.fit, Test)
+(ripperacc <- postResample(pred = ripperPredict,
+             obs = Test$Class))
+
+```
+
+```{r}
+#dataDownsampledTrain<-downSample(dataTrain[,-classindex], as.factor(dataTrain[, classindex])) # train
+#dataUpsampledTrain<-upSample(dataTrain[,-classindex], as.factor(dataTrain[, classindex])) #train
+
+
+TrainClasses<-dataUpsampled$Class
+fitControl <- trainControl(method = "repeatedcv",
+                           number = 10,
+                           repeats = 10)
+ripper.fit <- caret::train(Class~.,dataUpsampled,
+                  method = "JRip",
+                  preProcess = c("center", "scale"),
+                  trControl = fitControl,metric = "Kappa")
+                  #control=Weka_control(O = 3, F = 4,N = 2))
+ripper.fit
+ripperPredict <- predict(ripper.fit, dataTest)
+#(ripperacc <- postResample(pred = ripperPredict,
+ #            obs = Test$Class))
+
+```
+
+```{r}
+Id<-c(seq(1:dim(dataTest)[1]))
+Prediction<-ripperPredict
+kaggle<-data_frame(Id,Prediction)
+write.csv(kaggle,file = "/home/cris/mrcrstnherediagmez@gmail.com/Preprocesamiento_Y_clasificacion/RipperResults7.csv",row.names = F)
+```
+

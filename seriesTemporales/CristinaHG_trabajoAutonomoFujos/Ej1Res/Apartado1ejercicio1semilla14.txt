@@ -1,0 +1,14 @@
+classified instances = 1,000,000
+classifications correct (percent) = 84.547
+Kappa Statistic (percent) = 76.822
+Kappa Temporal Statistic (percent) = 76.83
+Kappa M Statistic (percent) = 76.759
+model training instances = 1,000,000
+model serialized size (bytes) = 1,888,752
+tree size (nodes) = 305
+tree size (leaves) = 153
+active learning leaves = 153
+tree depth = 12
+active leaf byte size estimate = 12,209.987
+inactive leaf byte size estimate = 0.0
+byte size estimate overhead = 1.011
