@@ -1,0 +1,33 @@
+hdfs dfs -mkdir input
+hdfs dfs -put /var/tmp/materialPig/airQualityEs.csv input
+hdfs dfs -ls input
+pig -stop_on_failure
+-- especficiación de esquema durante carga de datos - carga de flujo
+measure = load '/user/CD_76668203/input/airQualityEs.csv' using PigStorage(';') as (date:chararray, co:float, no:float, no2:float, o3:float, pm10:float, sh2:float, pm25:float, pst:float, so2:float, province:chararray, station:chararray);
+
+-- volcado de resultados
+store measure into 'pigResults/AirQuialityProcessed';
+-- comprobación
+hdfs dfs -cat pigResults/AirQualityProcessed/part-m-00000 | less
+-- volcado de resultados con separadores
+store measure into 'pigResults/AirQualityProcessed2' using PigStorage (',');
+-- comprobación
+hdfs dfs -cat pigResults/AirQualityProcessed2/part-m-00000 | less
+-- muestra de los datos
+dump measure;
+-- Operador relacional foreach
+Localizacion = foreach measure generate province, station;
+-- otra forma
+Localizacion = foreach measure generate $10, $11;
+-- mostramos
+dump Localizacion;
+-- Operador relacional filter
+filter_measure = filter measure by date == 'DIA';
+-- Operador relacional group 
+measure_by_province = group filter_measure by province;
+
+num_measures_by_province = foreach measure_by_province generate group, AVG(filter_measure.co) as measure;
+
+store num_measures_by_province into 'pigResults/AirQualityProcessed3';
+
+hdfs dfs -cat pigResults/AirQualityProcessed3/part-r-00000 | less

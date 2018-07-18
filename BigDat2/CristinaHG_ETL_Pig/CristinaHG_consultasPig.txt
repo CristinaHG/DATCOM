@@ -1,0 +1,46 @@
+-- Mª Cristina Heredia Gómez
+
+-- creación directorio
+hdfs dfs -mkdir input2
+-- descarga datos
+wget https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data
+
+-- poner datos en el directorio
+hdfs dfs -put adult.data input2
+
+-- comprobar
+hdfs dfs -ls input2
+
+-- especificiación de esquema durante carga de datos - carga de flujo
+measure = load '/user/CD_76668203/input2/adult.data' using PigStorage(',') as (Age: int, Workclass: chararray, Fnlwgt: long, Education: chararray, EducationNum: int, MaritalStatus: chararray, Occupation: chararray, Relationship: chararray, Race: chararray, Sex: chararray, capitalGain: long, CapitalLoss: int, HoursPerWeek: int, Country: chararray, YearGain: chararray);
+
+-- volcado de resultados
+store measure into 'pigResults/CensusProcessed' using PigStorage (',');
+
+-- comprobación
+hdfs dfs -cat pigResults/CensusProcessed/part-m-00000 | less
+
+-- muestra de los datos
+dump measure;
+
+-- operación de proyección: (selección de columnas Age, Workclass, Education, Sex)
+proyeccion = foreach measure generate Age, Workclass, Education, Sex;
+dump proyeccion;
+
+-- operación de selección: (selección de mujeres >18)
+seleccion = filter measure by Sex == ' Female' AND Age>18;
+dump seleccion;
+
+-- cuantas mujeres >18 hay por cada workingclass
+measure_by_workclass = group seleccion by Workclass;
+dump measure_by_workclass; 
+women_by_workclass = foreach measure_by_workclass generate group, COUNT(seleccion.Workclass) as wk parallel 12;
+dump women_by_workclass;
+
+-- Para cada clase de trabajo, cual es la edad media de las mujeres que trabajan en cada sector
+women_age_by_workclass = foreach measure_by_workclass generate group, AVG(seleccion.Age) as measure parallel 12;
+dump women_age_by_workclass;
+
+
+
+

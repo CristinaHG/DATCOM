@@ -1,0 +1,4 @@
+# operación de proyección:
+SELECT Age, Workclass, Education, Sex FROM Census;
+
+SELECT * FROM Census WHERE Sex="Female"  AND Age > 18;

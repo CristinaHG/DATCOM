@@ -1,0 +1,62 @@
+# Mª Cristina Heredia Gómez
+
+# creación directorio hadoop:
+hdfs dfs -mkdir input
+
+# cargar los datos del fichero:
+hdfs dfs -put hdfs dfs -put /var/tmp/materialImpala/adult.data /input
+
+# comprobar que el fichero se ha cargado en HDFS
+hdfs dfs -ls /input
+
+#IMPALA
+#creación tabla:
+CREATE TABLE IF NOT EXISTS Census (Age INT,
+Workclass STRING, Fnlwgt BIGINT, Education STRING, EducationNum INT, MaritalStatus STRING, Occupation STRING, Relationship STRING, Race STRING, Sex STRING, capitalGain BIGINT, CapitalLoss INT, HoursPerWeek INT, Country STRING, YearGain STRING ) ROW FORMAT DELIMITED FIELDS
+TERMINATED BY '\,' STORED AS TEXTFILE;
+
+#comprobación:
+DESCRIBE Census;
+
+# cargar datos en tabla:
+
+# cambiando permisos para poder escribir en todo el directorio
+sudo -u hdfs hadoop fs -chown -R impala:supergroup /input
+
+#carga datos
+LOAD DATA INPATH '/input/adult.data' OVERWRITE INTO TABLE Census;
+
+#Ante esta base de datos intentaremos hacer un análisis social que responda a las preguntas:
+# ¿Qué representación por sexo hay en cada sector de trabajo?
+# ¿a qué sector de trabajo pertenecen mayoritariamente las personas comtempladas en la BD?
+# ¿influye el sexo en el sueldo anual que perciben las personas?
+# ¿influye la raza raza en el sueldo anual que perciben las personas?
+
+
+# operación de proyección:
+SELECT Age, Workclass, Education, Sex FROM Census;
+
+# operación de selección:
+SELECT * FROM Census WHERE Sex=" Female"  AND Age > 18;
+
+# cuales son las working classes más comunes
+SELECT Workclass, COUNT(*) FROM Census GROUP BY Workclass;
+
+# como se distribuyen los sectores de trabajo por sexo
+SELECT Workclass,Sex,count(*)  FROM Census GROUP BY Workclass,Sex order by workclass ;
+
+# limpiamos perdidos y nulos:
+SELECT Workclass,Sex,count(*)  FROM (SELECT * FROM Census WHERE workclass!="NULL"), GROUP BY Workclass,Sex order by workclass ;
+
+# Comprobamos cuántas personas hay que ganan menos de 50.000 al año, porsexo y por grupo de trabajo:
+SELECT Workclass,Sex, count(*)  FROM Census WHERE workclass!="NULL" AND Fnlwgt < 50000 GROUP BY Workclass,Sex order by workclass;
+
+# Comprobar cuantos ganan <50000 por sexo y por raza
+SELECT Sex,Race, count(*)  FROM Census WHERE  workclass!="NULL" AND Fnlwgt < 50000 GROUP BY Sex, Race order by Race ;
+
+# Para todos los tipos de trabajo, ver cuantas personas de cada sexo y raza ganan menos de 50000
+SELECT Sex,Race, count(workclass)  FROM Census WHERE  workclass!="NULL" AND Fnlwgt < 50000 GROUP BY Sex, Race order by Race ;
+
+# Para todos los tipos de trabajo, ver cuantas personas de cada sexo y raza ganan mas de 50000
+SELECT Sex,Race, count(workclass)  FROM Census WHERE  workclass!="NULL" AND Fnlwgt >= 50000 GROUP BY Sex, Race order by Race ;
+

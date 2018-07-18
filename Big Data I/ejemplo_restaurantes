@@ -1,0 +1,201 @@
+{
+	"_id" : ObjectId("5aa93981e744de249798186c"),
+	"address" : {
+		"building" : "720",
+		"coord" : [
+			-73.971068,
+			40.793605
+		],
+		"street" : "Amsterdam Avenue",
+		"zipcode" : "10025"
+	},
+	"borough" : "Manhattan",
+	"cuisine" : "Other",
+	"grades" : [ ],
+	"name" : "The Halal Guys",
+	"restaurant_id" : "50017823"
+}
+{
+	"_id" : ObjectId("5aa93981e744de249798186d"),
+	"address" : {
+		"building" : "648",
+		"coord" : [
+			-73.86260639999999,
+			40.8184297
+		],
+		"street" : "Soundview Avenue",
+		"zipcode" : "10473"
+	},
+	"borough" : "Bronx",
+	"cuisine" : "Spanish",
+	"grades" : [
+		{
+			"date" : ISODate("2015-01-20T00:00:00Z"),
+			"grade" : "Not Yet Graded",
+			"score" : 30
+		}
+	],
+	"name" : "Don Leo'S Place Inc",
+	"restaurant_id" : "50017822"
+}
+{
+	"_id" : ObjectId("5aa93981e744de249798186e"),
+	"address" : {
+		"building" : "209",
+		"coord" : [
+			-73.9388218,
+			40.7985286
+		],
+		"street" : "East  117 Street",
+		"zipcode" : "10035"
+	},
+	"borough" : "Manhattan",
+	"cuisine" : "Other",
+	"grades" : [ ],
+	"name" : "Kallejon Corp",
+	"restaurant_id" : "50017824"
+}
+{
+	"_id" : ObjectId("5aa93981e744de249798186f"),
+	"address" : {
+		"building" : "6017",
+		"coord" : [
+			-74.018526,
+			40.640279
+		],
+		"street" : "4Th Ave",
+		"zipcode" : "11220"
+	},
+	"borough" : "Brooklyn",
+	"cuisine" : "Bakery",
+	"grades" : [
+		{
+			"date" : ISODate("2015-01-08T00:00:00Z"),
+			"grade" : "A",
+			"score" : 13
+		}
+	],
+	"name" : "New Jw Golden Bakery",
+	"restaurant_id" : "50017825"
+}
+{
+	"_id" : ObjectId("5aa93981e744de2497981870"),
+	"address" : {
+		"building" : "156",
+		"coord" : [
+			-74.0018754,
+			40.72752029999999
+		],
+		"street" : "Sullivan St",
+		"zipcode" : "10012"
+	},
+	"borough" : "Manhattan",
+	"cuisine" : "Bakery",
+	"grades" : [
+		{
+			"date" : ISODate("2015-01-20T00:00:00Z"),
+			"grade" : "Not Yet Graded",
+			"score" : 14
+		}
+	],
+	"name" : "Brigadeiro Bakery",
+	"restaurant_id" : "50017826"
+}
+{
+	"_id" : ObjectId("5aa93981e744de2497981871"),
+	"address" : {
+		"building" : "8625",
+		"coord" : [
+			-74.0284466,
+			40.6219772
+		],
+		"street" : "4 Avenue",
+		"zipcode" : "11209"
+	},
+	"borough" : "Brooklyn",
+	"cuisine" : "Other",
+	"grades" : [ ],
+	"name" : "Taco Bell",
+	"restaurant_id" : "50017827"
+}
+{
+	"_id" : ObjectId("5aa93981e744de2497981872"),
+	"address" : {
+		"building" : "32",
+		"coord" : [
+			-73.98919099999999,
+			40.746034
+		],
+		"street" : "West   29 Street",
+		"zipcode" : "10001"
+	},
+	"borough" : "Manhattan",
+	"cuisine" : "Other",
+	"grades" : [ ],
+	"name" : "The Paul",
+	"restaurant_id" : "50017831"
+}
+{
+	"_id" : ObjectId("5aa93981e744de2497981873"),
+	"address" : {
+		"building" : "220",
+		"coord" : [
+			-73.9990803,
+			40.7440623
+		],
+		"street" : "8Th Ave",
+		"zipcode" : "10011"
+	},
+	"borough" : "Manhattan",
+	"cuisine" : "Café/Coffee/Tea",
+	"grades" : [
+		{
+			"date" : ISODate("2015-01-20T00:00:00Z"),
+			"grade" : "Not Yet Graded",
+			"score" : 15
+		}
+	],
+	"name" : "Teaffee",
+	"restaurant_id" : "50017828"
+}
+{
+	"_id" : ObjectId("5aa93981e744de2497981874"),
+	"address" : {
+		"building" : "13505",
+		"coord" : [
+			-73.8680742,
+			40.7486515
+		],
+		"street" : "40Th Rd",
+		"zipcode" : "11354"
+	},
+	"borough" : "Queens",
+	"cuisine" : "Chinese",
+	"grades" : [
+		{
+			"date" : ISODate("2015-01-20T00:00:00Z"),
+			"grade" : "Not Yet Graded",
+			"score" : 5
+		}
+	],
+	"name" : "Da Hua Shi Fu",
+	"restaurant_id" : "50017829"
+}
+{
+	"_id" : ObjectId("5aa93981e744de2497981875"),
+	"address" : {
+		"building" : "44-69",
+		"coord" : [
+			-73.9474833,
+			40.74766779999999
+		],
+		"street" : "21 Street",
+		"zipcode" : "11101"
+	},
+	"borough" : "Queens",
+	"cuisine" : "Other",
+	"grades" : [ ],
+	"name" : "I-Fortune Cookie",
+	"restaurant_id" : "50017835"
+}
+
