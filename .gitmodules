@@ -4,3 +4,6 @@
 [submodule "rec_systems/clustering-summarization"]
 	path = rec_systems/clustering-summarization
 	url = git@github.com:fdavidcl/clustering-summarization.git
+[submodule "Intro_investigacion/open-access"]
+	path = Intro_investigacion/open-access
+	url = git@github.com:fdavidcl/open-access.git
