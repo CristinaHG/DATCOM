@@ -1,3 +1,6 @@
 [submodule "Aspectos_Avanzados/guns-vs-phones"]
 	path = Aspectos_Avanzados/guns-vs-phones
 	url = git@github.com:fdavidcl/guns-vs-phones.git
+[submodule "rec_systems/clustering-summarization"]
+	path = rec_systems/clustering-summarization
+	url = git@github.com:fdavidcl/clustering-summarization.git
